@@ -1,10 +1,11 @@
 import "jsr:@std/dotenv/load";
+import { getTokens } from "./tokens.ts";
 
-const token = Deno.env.get("TOKEN");
 export async function fetchWebApi(endpoint: string, method: string, body?: object) {
+  const { accessToken } = getTokens();
   const res = await fetch(`https://api.spotify.com/${endpoint}`, {
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${accessToken}`,
     },
     method,
     body:JSON.stringify(body)
