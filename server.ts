@@ -56,6 +56,11 @@ router
         error: 'state_mismatch'
       }).toString();
       context.response.redirect('/#' + errorString);
+    } else if (code === null) {
+      const errorString = new URLSearchParams({
+        error: 'code_mismatch'
+      }).toString();
+      context.response.redirect('/#' + errorString);
     } else {
       try {
         const response = await fetch('https://accounts.spotify.com/api/token', {
@@ -82,9 +87,14 @@ router
         setTokens(access_token, refresh_token);
 
         const profile = await fetchWebApi(
-          `v1/me`, 'GET'
+          'v1/me', 'GET'
         );
         console.log(profile);
+
+        const playlists = await fetchWebApi(
+          'v1/me/playlists', 'GET'
+        );
+        console.log(playlists);
 
         const params = new URLSearchParams({
           access_token: access_token,
@@ -96,6 +106,43 @@ router
           error: 'invalid_token'
         }).toString();
         context.response.redirect('/#?' + errParam);
+      }
+    }
+  }).get("/refresh_token", async (context) => {
+    const refreshToken = context.request.url.searchParams.get('refresh_token') || null;
+
+    console.log('refresh_token');    
+
+    if (refreshToken) {
+      try {
+        const response = await fetch('https://accounts.spotify.com/api/token', {
+          method: 'POST',
+          headers:{
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': 'Basic ' + (new Buffer.from(client_id + ':' + client_secret).toString('base64'))
+          },    
+          body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken
+          })
+        });
+  
+        if (!response.ok) {
+          throw new Error();
+        }
+        
+        const json = await response.json();
+        const access_token = json.access_token,
+              refresh_token = json.refresh_token;
+  
+        setTokens(access_token, refresh_token);
+
+        context.response.body = {
+          'access_token': access_token,
+          'refresh_token': refresh_token
+        };
+      } catch(error) {
+        console.log(error);
       }
     }
   });
