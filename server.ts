@@ -1,11 +1,12 @@
 import { Application } from "jsr:@oak/oak/application";
 import { Router } from "jsr:@oak/oak/router";
+import { Handlebars } from 'https://deno.land/x/handlebars/mod.ts';
 import { oakCors } from "https://deno.land/x/cors/mod.ts";
 import { Buffer } from "node:buffer";
 import { getPlaylist } from "./getPlaylist.ts";
 import { sortTracks } from "./sortTracks.ts";
 import { createPlaylist } from "./createPlaylist.ts";
-import { setTokens } from "./tokens.ts";
+import { setTokens, getTokens } from "./tokens.ts";
 import { fetchWebApi } from "./fetchWebApi.ts";
 
 const port = 8080;
@@ -19,8 +20,28 @@ const generateRandomString = (length: number) => {
   return values.reduce((acc, x) => acc + possible[x % possible.length], "");
 }
 
+const handle = new Handlebars();
+
 const router = new Router();
 router
+  .get("/", async (context) => {
+    const { accessToken } = getTokens();
+    if (accessToken) {
+      const profile = await fetchWebApi(
+        'v1/me', 'GET'
+      );
+      console.log(profile);
+
+      // const playlists = await fetchWebApi(
+      //   'v1/me/playlists', 'GET'
+      // );
+      // console.log(playlists);
+
+      context.response.body = await handle.renderView("index", { profile });
+    } else {
+      context.response.body = await handle.renderView("login");
+    }
+  })
   .get("/playlist/:id", async (context) => {
     const playlist = await getPlaylist(context.params.id);
     const sortedTracks = sortTracks(playlist.tracks?.items.map(({track}) => track));
@@ -86,21 +107,7 @@ router
 
         setTokens(access_token, refresh_token);
 
-        const profile = await fetchWebApi(
-          'v1/me', 'GET'
-        );
-        console.log(profile);
-
-        const playlists = await fetchWebApi(
-          'v1/me/playlists', 'GET'
-        );
-        console.log(playlists);
-
-        const params = new URLSearchParams({
-          access_token: access_token,
-          refresh_token: refresh_token
-        }).toString();
-        context.response.redirect('/#?' + params);
+        context.response.redirect('/#');
       } catch {
         const errParam = new URLSearchParams({
           error: 'invalid_token'
@@ -153,18 +160,6 @@ const app = new Application();
 app.use(oakCors());
 app.use(router.routes());
 app.use(router.allowedMethods());
-
-// static home middleware
-app.use(async (context, next) => {
-  try {
-    await context.send({
-      root: `${Deno.cwd()}/static`,
-      index: "index.html",
-    });
-  } catch {
-    await next();
-  }
-});
 
 console.log(`Listening on ${port}`);
 await app.listen({ port: port });
