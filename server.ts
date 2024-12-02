@@ -32,12 +32,13 @@ router
       );
       console.log(profile);
 
-      // const playlists = await fetchWebApi(
-      //   'v1/me/playlists', 'GET'
-      // );
-      // console.log(playlists);
-
-      context.response.body = await handle.renderView("index", { profile });
+      const playlists = await fetchWebApi(
+        'v1/me/playlists', 'GET'
+      );
+      const items = playlists.items.filter(n => n);
+      console.log(items);
+      
+      context.response.body = await handle.renderView("index", { profile, items });
     } else {
       context.response.body = await handle.renderView("login");
     }
